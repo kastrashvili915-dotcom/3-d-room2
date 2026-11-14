@@ -42,6 +42,8 @@
       <h2 style="margin-top:12px">Свет</h2>
       <button data-light="main" class="active">Основная зона</button>
       <button data-light="pendants" class="active">Подвесы над стойкой</button>
+      <h2 style="margin-top:12px">Размеры</h2>
+      <button data-dimensions class="active">Скрыть размеры</button>
     </aside>
     <aside id="legend" class="panel">
       <h2>Размеры комнаты</h2>
@@ -107,6 +109,7 @@
     const lampGlass = new THREE.MeshStandardMaterial({ color: 0xffd88b, roughness: .15, emissive: 0xff9c2f, emissiveIntensity: 1.1 });
     const mainLights = [], pendantLights = [];
     const room = new THREE.Group(); scene.add(room);
+    const dimensionGroup = new THREE.Group(); scene.add(dimensionGroup);
 
     function box(w, h, d, mat, x, y, z, name='') {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -115,6 +118,23 @@
     function cylinder(rTop, rBottom, h, mat, x, y, z, name='') {
       const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBottom, h, 32), mat);
       m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; m.name = name; room.add(m); return m;
+    }
+    // Dimension lines and labels: one switch hides the entire measurement layer.
+    const dimensionMat = new THREE.LineBasicMaterial({ color: 0x8d1230, transparent:true, opacity:.92 });
+    function dimensionLabel(text, x, y, z) {
+      const c = document.createElement('canvas'); c.width=256; c.height=68;
+      const ctx=c.getContext('2d'); ctx.fillStyle='rgba(255,250,240,.94)';
+      ctx.roundRect(5,6,246,56,12); ctx.fill(); ctx.strokeStyle='#8d1230'; ctx.lineWidth=3; ctx.stroke();
+      ctx.fillStyle='#4e1020'; ctx.font='700 30px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text,128,35);
+      const texture=new THREE.CanvasTexture(c); texture.colorSpace=THREE.SRGBColorSpace;
+      const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false}));
+      sprite.position.set(x,y,z); sprite.scale.set(.72,.19,1); dimensionGroup.add(sprite);
+    }
+    function dimensionLine(a,b,label,labelPos) {
+      const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a),new THREE.Vector3(...b)]),dimensionMat); dimensionGroup.add(line);
+      const tickMat=new THREE.LineBasicMaterial({color:0x8d1230});
+      [[a[0],a[1]-.07,a[2]],[a[0],a[1]+.07,a[2]]].forEach(() => {});
+      dimensionLabel(label,...labelPos);
     }
 
     // Floor and fixed walls - main room + enclosed balcony
@@ -238,6 +258,16 @@
     box(.58, 2.25, .055, curtainMat, W/2-.34, 1.075, D/2-.12, 'gathered curtain right');
     [-1.38,-1.26,-1.14,1.14,1.26,1.38].forEach(x => box(.026,2.22,.07,trim,x,1.075,D/2-.115,'curtain fold'));
 
+    // Always measured in centimetres; the entire overlay can be collapsed with one button.
+    dimensionLine([-1.50,.10,-1.84],[1.50,.10,-1.84],'305 см',[0,.25,-1.84]);
+    dimensionLine([-1.72,.10,-1.96],[-1.72,.10,1.96],'395 см',[-1.72,.26,0]);
+    dimensionLine([-1.72,.10,1.96],[-1.72,.10,3.41],'145 см',[-1.72,.26,2.69]);
+    dimensionLine([-.325,2.45,-1.50],[1.375,2.45,-1.50],'шкаф 170 × 45 см',[.525,2.56,-1.50]);
+    dimensionLine([1.02,.14,-.855],[1.02,.14,1.145],'диван 200 × 85 см',[1.02,.29,.145]);
+    dimensionLine([-1.20,.14,-.58],[-1.20,.14,1.22],'ТВ-тумба 180 × 35 см',[-1.20,.29,.32]);
+    dimensionLine([1.67,.10,-1.96],[1.67,.10,1.04],'фотообои 300 см',[1.67,.28,-.46]);
+    dimensionLine([1.80,.10,1.04],[1.80,.10,1.96],'полусферы 95 см',[1.80,.28,1.50]);
+
     // Helpful blueprint-like markers only, not a proposed style.
     const axis = new THREE.AxesHelper(.001); room.add(axis);
 
@@ -261,6 +291,12 @@
       button.classList.toggle('active', on); arr.forEach(l => l.visible = on);
     }
     document.querySelectorAll('[data-light]').forEach(b => b.addEventListener('click', () => toggleLights(b.dataset.light)));
+    const dimensionsButton = document.querySelector('[data-dimensions]');
+    dimensionsButton.addEventListener('click', () => {
+      dimensionGroup.visible = !dimensionGroup.visible;
+      dimensionsButton.classList.toggle('active', dimensionGroup.visible);
+      dimensionsButton.textContent = dimensionGroup.visible ? 'Скрыть размеры' : 'Показать размеры';
+    });
     setView('top');
 
     function animate(now) {
